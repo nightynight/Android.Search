@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Android.search by nightynight</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Android.search</h1>
+      <h2 class="project-tagline"></h2>
+      <a href="https://github.com/nightynight/Android.Search" class="btn">View on GitHub</a>
+      <a href="https://github.com/nightynight/Android.Search/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/nightynight/Android.Search/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <p>本文参照Android官方教程，笔者在学习时遇到一些问题，而且官方教程有些地方说的不太明白，所以进行了整理。</p>
+
+<p>Android的内置搜索功能，能够在app中方便地为所有用户提供一个统一的搜索体验。
+从Android 3.0开始，在action bar中使用SearchView作为item，是在你的app中提供搜索的一种更好方法。像其他所有在action bar中的item一样，你可以定义SearchView在有足够空间的时候总是显示，或设置为一个折叠操作(collapsible action),一开始SearchView作为一个图标显示，当用户点击图标时再显示搜索框占据整个action bar。</p>
+
+<h3>
+<a id="添加search-view到action-bar中" class="anchor" href="#%E6%B7%BB%E5%8A%A0search-view%E5%88%B0action-bar%E4%B8%AD" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>添加Search View到action bar中</h3>
+
+<p>为了在action bar中添加SearchView，在你的工程目录res/menu/中创建一个名为options_menu.xml的文件，再把下列代码添加到文件中。这段代码定义了如何创建search item，比如使用的图标和item的标题。collapseActionView属性允许你的SearchView占据整个action bar，在不使用的时候折叠成普通的action bar item。由于在手持设备中action bar的空间有限，建议使用collapsibleActionView属性来提供更好的用户体验。</p>
+
+<pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:searchDemo="http://schemas.android.com/apk/res-auto"&gt;
+    &lt;item android:id="@+id/search"
+        android:title="@string/search_title"
+        android:icon="@drawable/ic_search"
+        searchDemo:showAsAction="collapseActionView|ifRoom"
+        searchDemo:actionViewClass="android.widget.SearchView" /&gt;
+&lt;/menu&gt;
+</code></pre>
+
+<p>Note:如果你的menu items已经有一个XML文件，你可以只把元素添加入文件。
+要在action bar中显示SearchView，在你的activity中onCreateOptionsMenu())方法内填充XML菜单资源(res/menu/options_menu.xml):</p>
+
+<pre><code>@Override
+public boolean onCreateOptionsMenu(Menu menu) {
+    MenuInflater inflater = getMenuInflater();
+    inflater.inflate(R.menu.options_menu, menu);
+
+    return true;
+}
+</code></pre>
+
+<p>如果你立即运行你的app，SearchView就会显示在你app的action bar中，但还无法使用。你现在需要定义SearchView如何运行。</p>
+
+<h3>
+<a id="创建一个检索配置" class="anchor" href="#%E5%88%9B%E5%BB%BA%E4%B8%80%E4%B8%AA%E6%A3%80%E7%B4%A2%E9%85%8D%E7%BD%AE" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>创建一个检索配置</h3>
+
+<p>检索配置(searchable configuration)在 res/xml/searchable.xml文件中定义了SearchView如何运行。检索配置中至少要包含一个android:label属性，与Android manifest中的或android:label属性值相同。但我们还是建议添加android:hint属性来告诉用户应该在搜索框中输入什么内容:</p>
+
+<pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;searchable xmlns:android="http://schemas.android.com/apk/res/android"
+    android:hint="@string/search_hint"
+    android:label="@string/app_name" /&gt;
+</code></pre>
+
+<p>Note:这里的hint和label不要使用字节字符串。
+在MainActivity中输入搜索条件，我们还需要一个Activity来显示搜索结果，创建一个名为SearchResultsActivity的Activity，然后在manifest中进行相关配置。
+在MainActivity中配置要打开哪个Activity：</p>
+
+<pre><code>&lt;activity android:name=".MainActivity"&gt;
+    &lt;intent-filter&gt;
+        &lt;action android:name="android.intent.action.MAIN" /&gt;
+
+        &lt;category android:name="android.intent.category.LAUNCHER" /&gt;
+    &lt;/intent-filter&gt;
+    &lt;meta-data
+        android:name="android.app.default_searchable"
+        android:value=".SearchResultsActivity" /&gt;
+&lt;/activity&gt;
+</code></pre>
+
+<p>在SearchResultsActivity中加入如下代码：</p>
+
+<pre><code>&lt;meta-data
+    android:name="android.app.searchable"
+    android:resource="@xml/searchable" /&gt;
+</code></pre>
+
+<p>在你之前创建的onCreateOptionsMenu())方法中，调用setSearchableInfo(SearchableInfo))把SearchView和检索配置关联在一起:</p>
+
+<pre><code>@Override
+public boolean onCreateOptionsMenu(Menu menu) {
+    MenuInflater inflater = getMenuInflater();
+    inflater.inflate(R.menu.options_menu, menu);
+
+    // 关联检索配置和SearchView
+    SearchManager searchManager =
+            (SearchManager) getSystemService(Context.SEARCH_SERVICE);
+    SearchView searchView =
+            (SearchView) menu.findItem(R.id.search).getActionView();
+    searchView.setSearchableInfo(
+            searchManager.getSearchableInfo(getComponentName()));
+
+    return true;
+}
+</code></pre>
+
+<p>检索配置与SearchView正确关联后，当用户提交一个搜索请求时，SearchView会以ACTION_SEARCH intent启动一个activity，这里会启动SearchResultsActivity。
+在你的检索activity中，通过在onCreate())方法中检查ACTION_SEARCH intent来处理它。</p>
+
+<pre><code>protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.search_result);
+    handleIntent(getIntent());
+}
+
+@Override
+protected void onNewIntent(Intent intent) {
+    handleIntent(intent);
+}
+
+private void handleIntent(Intent intent) {
+
+    if (Intent.ACTION_SEARCH.equals(intent.getAction())) {
+        String query = intent.getStringExtra(SearchManager.QUERY);
+        //通过某种方法，根据请求检索你的数据
+        Log.i(AppConstants.DEBUG_TAG,"-------输入的搜索关键字为："+query);
+    }
+}
+</code></pre>
+
+<p>如果你现在运行你的app，输入搜索关键字，确定后就会启动SearchResultsActivity，SearchResultsActivity能获取到你的查询条件。</p>
+
+<h3>
+<a id="下面向你展示如何创建一个健壮的可以提供全文搜索的sqlite虚拟表并从一个每行有一组单词-解释对的文件中将数据填入作为数据源" class="anchor" href="#%E4%B8%8B%E9%9D%A2%E5%90%91%E4%BD%A0%E5%B1%95%E7%A4%BA%E5%A6%82%E4%BD%95%E5%88%9B%E5%BB%BA%E4%B8%80%E4%B8%AA%E5%81%A5%E5%A3%AE%E7%9A%84%E5%8F%AF%E4%BB%A5%E6%8F%90%E4%BE%9B%E5%85%A8%E6%96%87%E6%90%9C%E7%B4%A2%E7%9A%84sqlite%E8%99%9A%E6%8B%9F%E8%A1%A8%E5%B9%B6%E4%BB%8E%E4%B8%80%E4%B8%AA%E6%AF%8F%E8%A1%8C%E6%9C%89%E4%B8%80%E7%BB%84%E5%8D%95%E8%AF%8D-%E8%A7%A3%E9%87%8A%E5%AF%B9%E7%9A%84%E6%96%87%E4%BB%B6%E4%B8%AD%E5%B0%86%E6%95%B0%E6%8D%AE%E5%A1%AB%E5%85%A5%E4%BD%9C%E4%B8%BA%E6%95%B0%E6%8D%AE%E6%BA%90" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>下面向你展示如何创建一个健壮的可以提供全文搜索的SQLite虚拟表。并从一个每行有一组单词-解释对的文件中将数据填入，作为数据源。</h3>
+
+<p>向新疆一个实体类：Vocabulary，有两个字段——word和definition。
+这里封装了一个工具类：</p>
+
+<pre><code>/**
+ * Created by chenchao on 16/8/18.
+ * 该工具类通过解析res/raw下的txt文件，创建一个虚拟表，并提供查询方法
+ * 虚拟表与SQLite表的运行方式类似，但虚拟表是通过回调来向内存中的对象进行读取和写入
+ * 提供两个查询方法，分别返回一个Vocabulary对象列表和一个Vocabulary对象
+ */
+public class DatabaseTable {
+    private static final String TAG = "DictionaryDatabase";
+
+    //字典的表中将要包含的列名
+    public static final String COL_WORD = "WORD";
+    public static final String COL_DEFINITION = "DEFINITION";
+
+    private static final String DATABASE_NAME = "DICTIONARY";   //数据库名
+    private static final String FTS_VIRTUAL_TABLE = "FTS";  //表名
+    private static final int DATABASE_VERSION = 1;
+
+    private final DatabaseOpenHelper mDatabaseOpenHelper;
+
+    public DatabaseTable(Context context) {
+        mDatabaseOpenHelper = new DatabaseOpenHelper(context);
+    }
+
+    private static class DatabaseOpenHelper extends SQLiteOpenHelper {
+
+        private final Context mHelperContext;
+        private SQLiteDatabase mDatabase;
+
+        //创建虚拟表的SQL语句
+        private static final String FTS_TABLE_CREATE =
+                "CREATE VIRTUAL TABLE " + FTS_VIRTUAL_TABLE +
+                        " USING fts3 (" +
+                        COL_WORD + ", " +
+                        COL_DEFINITION + ")";
+
+        DatabaseOpenHelper(Context context) {
+            super(context, DATABASE_NAME, null, DATABASE_VERSION);
+            mHelperContext = context;
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            mDatabase = db;
+            mDatabase.execSQL(FTS_TABLE_CREATE);
+            loadDictionary();
+        }
+
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            Log.w(TAG, "Upgrading database from version " + oldVersion + " to "
+                    + newVersion + ", which will destroy all old data");
+            db.execSQL("DROP TABLE IF EXISTS " + FTS_VIRTUAL_TABLE);
+            onCreate(db);
+        }
+
+
+        //下面的代码会向你展示如何读取一个内容为单词和解释的文本文件(位于res/raw/definitions.txt)，如何解析文件与如何将文件中的数据按行插入虚拟表中。
+        //为防止UI锁死这些操作会在另一条线程中执行。
+        private void loadDictionary() {
+            new Thread(new Runnable() {
+                public void run() {
+                    try {
+                        loadWords();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }).start();
+        }
+
+        /**
+         * 解析txt文件中的内容，并将解析后的单词记录添加到虚拟表中
+         * @throws IOException
+         */
+        private void loadWords() throws IOException {
+            final Resources resources = mHelperContext.getResources();
+            InputStream inputStream = resources.openRawResource(R.raw.definitions);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+
+            try {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String[] strings = TextUtils.split(line, "-");
+                    long id = addWord(strings[0].trim(), strings[1].trim());
+                    if (id &lt; 0) {
+                        Log.e(TAG, "unable to add word: " + strings[0].trim());
+                    }
+                }
+            } finally {
+                reader.close();
+            }
+        }
+
+        /**
+         * 添加单词到虚拟表中
+         * @param word
+         * @param definition
+         * @return
+         */
+        private long addWord(String word, String definition) {
+            ContentValues initialValues = new ContentValues();
+            initialValues.put(COL_WORD, word);
+            initialValues.put(COL_DEFINITION, definition);
+
+            return mDatabase.insert(FTS_VIRTUAL_TABLE, null, initialValues);
+        }
+    }
+
+    /**
+     * 模糊查询，使用头匹配，用来提供一个list,最多只取10条数据
+     * @param query 查询关键字
+     * @return List&lt;Vocabulary&gt;
+     */
+    public List&lt;Vocabulary&gt; getWordsMatches(String query) {
+        List&lt;Vocabulary&gt; list=new ArrayList&lt;Vocabulary&gt;();
+
+        SQLiteQueryBuilder builder = new SQLiteQueryBuilder();
+        builder.setTables(FTS_VIRTUAL_TABLE);
+
+        SQLiteDatabase db = mDatabaseOpenHelper.getReadableDatabase();
+        String selection = COL_WORD + " MATCH ?";
+        String[] selectionArgs = new String[] {query+"*"};
+        String[] columns=new String[]{COL_WORD,COL_DEFINITION};
+
+        Cursor cursor = builder.query(db, columns, selection, selectionArgs, null, null, null);
+        Vocabulary vocabulary;
+        int count=0;
+        //最多只取10条数据
+        while(cursor.moveToNext() &amp;&amp; count &lt; 10){
+            String word = cursor.getString(cursor.getColumnIndex("WORD"));
+            String definition = cursor.getString(cursor.getColumnIndex("DEFINITION"));
+            vocabulary=new Vocabulary(word,definition);
+            list.add(vocabulary);
+            count++;
+        }
+        return list;
+    }
+
+    /**
+     * 精确查询，根据查询条件返回一个Vocabulary对象
+     * @param query 查询关键字
+     * @return Vocabulary
+     */
+    public Vocabulary getWord(String query) {
+        Vocabulary vocabulary = new Vocabulary();
+        SQLiteQueryBuilder builder = new SQLiteQueryBuilder();
+        builder.setTables(FTS_VIRTUAL_TABLE);
+
+        SQLiteDatabase db = mDatabaseOpenHelper.getReadableDatabase();
+        String selection = COL_WORD + " = ?";
+        String[] selectionArgs = new String[] {query};
+        String[] columns=new String[]{COL_WORD,COL_DEFINITION};
+
+        Cursor cursor = builder.query(db, columns, selection, selectionArgs, null, null, null);
+        while(cursor.moveToNext()){
+            String word = cursor.getString(cursor.getColumnIndex("WORD"));
+            String definition = cursor.getString(cursor.getColumnIndex("DEFINITION"));
+            vocabulary=new Vocabulary(word,definition);
+        }
+        return vocabulary;
+    }
+}
+</code></pre>
+
+<p>然后就可以在SearchResultsActivity中使用该类，并把结果展示到界面中。
+先给SearchResultsActivity创建一个布局文件，这里只是一个简单的TextView，就不展示代码了。然后在handleIntent方法中加入以下代码：</p>
+
+<pre><code>Vocabulary vocabulary=db.getWord(query);
+if (vocabulary.getWord()==null){
+    textView.setText("没有匹配的数据...");
+}else {
+    textView.setText(vocabulary.getWord()+":"+vocabulary.getDefinition());
+}
+</code></pre>
+
+<p>这样就把搜索结果展示在界面中了。</p>
+
+<h3>
+<a id="下面说明searchview和listview结合的使用实现有道词典查询单词的效果" class="anchor" href="#%E4%B8%8B%E9%9D%A2%E8%AF%B4%E6%98%8Esearchview%E5%92%8Clistview%E7%BB%93%E5%90%88%E7%9A%84%E4%BD%BF%E7%94%A8%E5%AE%9E%E7%8E%B0%E6%9C%89%E9%81%93%E8%AF%8D%E5%85%B8%E6%9F%A5%E8%AF%A2%E5%8D%95%E8%AF%8D%E7%9A%84%E6%95%88%E6%9E%9C" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>下面说明SearchView和ListView结合的使用，实现有道词典查询单词的效果</h3>
+
+<p>现在MainActivity的布局文件中加入一个ListView：</p>
+
+<pre><code>&lt;ListView android:id="@+id/list"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:drawSelectorOnTop="true"
+    android:scrollbars="vertical" /&gt;
+</code></pre>
+
+<p>先给SearchView设置一个监听器，在搜索框的值改变时更新ListView的内容，在onCreateOptionsMenu中加入如下代码</p>
+
+<pre><code>//给SearchView设置监听器，以便更新ListView的内容
+MenuItem searchItem = menu.findItem(R.id.search);
+searchView = (SearchView) searchItem.getActionView();
+searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() { //搜索时会触发这个事件搜索即可
+    @Override
+    public boolean onQueryTextSubmit(String query) {
+        return false;
+    }
+    @Override
+    public boolean onQueryTextChange(String newText) {
+        if(newText.length()!=0){
+            //当searchView的内容改变时，更新ListView
+            updateListView(newText);
+        }
+        return false;
+    }
+});
+</code></pre>
+
+<p>updateListView()中实现更新ListView</p>
+
+<pre><code>public void updateListView(String newText){
+    List&lt;Vocabulary&gt; vocabularies=db.getWordsMatches(newText);
+    words=new String[vocabularies.size()];
+    for (int i=0;i&lt;vocabularies.size();i++){
+        words[i]=vocabularies.get(i).getWord();
+    }
+    ArrayAdapter&lt;String&gt; aadapter=new ArrayAdapter&lt;String&gt;(getApplicationContext(), android.R.layout.simple_expandable_list_item_1, words);
+    listView.setAdapter(aadapter);
+}
+</code></pre>
+
+<p>最后给这个ListView添加一个监听器,点击每个item时把item的值作为搜索关键字</p>
+
+<pre><code>listView=(ListView)findViewById(R.id.list);
+//给ListView设置监听器，点击每个item时把item的值作为搜索关键字
+listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+    @Override
+    public void onItemClick(AdapterView&lt;?&gt; parent, View view, int position, long id) {
+        String word=words[position];
+        searchView.setQuery(word,true);
+    }
+});
+</code></pre>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/nightynight/Android.Search">Android.search</a> is maintained by <a href="https://github.com/nightynight">nightynight</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
